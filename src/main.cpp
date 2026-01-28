@@ -1,6 +1,12 @@
+// Check this link for Seeed XIAO ESP32C6 pinout
+//https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/
+
+// L293D with 3.3V logic link
+// https://arduino.stackexchange.com/questions/88781/how-do-i-instruct-the-l293d-to-operate-a-motor-at-full-speed-when-using-3-3v-gpi
+
+
 #include <Arduino.h>
 #include <Adafruit_SSD1306.h>
-#include <splash.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_LSM9DS0.h>
@@ -11,7 +17,7 @@ Adafruit_SSD1306 display = Adafruit_SSD1306();
 
 
 // IMU i2c
-Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(1000);
+Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0();
 
 float rollOffset;   // around x axis
 float pitchOffset;  // around y axis
@@ -19,13 +25,13 @@ float yawOffset;    // around z axis
 float rollPitchYawVelocity[3];
 
 // motor 1 on right, motor 2 on left
-uint8_t motor1Pin1 = 2;
-uint8_t motor1En = 3;
-uint8_t motor1Pin2 = 4;
+uint8_t motor1En = 0;
+uint8_t motor1Pin1 = 1;
+uint8_t motor1Pin2 = 2;
 float motor1Correction = 1.00;
 
-uint8_t motor2Pin1 = 5;
-uint8_t motor2En = 6;
+uint8_t motor2En = 3;
+uint8_t motor2Pin1 = 6;
 uint8_t motor2Pin2 = 7;
 float motor2Correction = 1.15;
 // goes left 1.1
@@ -59,7 +65,7 @@ float carTheta = 0.0;
 
 // uint8_t currentSpeed = 0;
 
-uint8_t allPins[] = { 2, 3, 4, 5, 6, 7 };
+uint8_t allPins[] = {0, 1, 2, 3, 6, 7};
 
 
 
@@ -138,55 +144,11 @@ void imuCalibration() {
 
 
 
-void setup() {
-  Serial.begin(9600);
-
-
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  display.display();
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.display();
-
-
-  // sensor setup
-  if (!lsm.begin()) {
-    Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
-    while (1)
-      ;
-  }
-  Serial.println("Found LSM9DS0 9DOF");
-  Serial.println("");
-  Serial.println("");
-  Serial.println("Setting up LSM9DS0 9DOF");
-  setupSensor();
-  delay(1);
-  imuCalibration();
-  displayGyro();
-  delay(500);
-
-
-  // pin setup
+void stop() {
   for (int i = 0; i < 6; i++) {
-    pinMode(i, OUTPUT);
+    digitalWrite(allPins[i], LOW);
   }
-
-  // stop();
-  // calibrateCar();
-  // straight(100.0, true);
-  // stop();
-  // rotate(3.1415 * 2.000, true);
-  // stop();
-}
-
-void loop() {
-
-  straight(100.0);
-
-  // rotate(3.1415);
-  stop();
-  delay(10000);
+  delay(stopTime);
 }
 
 // ---------------------------------------------------------------------
@@ -310,13 +272,6 @@ void rotate(float thetaSet) {
   display.display();
 }
 
-void stop() {
-  for (int i = 0; i < 6; i++) {
-    digitalWrite(allPins[i], LOW);
-  }
-  delay(stopTime);
-}
-
 void calibrateCar() {
   // Runs motors at 90% power for 3000 milliseconds
   // Measure distance traveled in cm and divide by 3000 to calculate speedCmPerMilli
@@ -337,4 +292,58 @@ void calibrateCar() {
   analogWrite(motor2En, default_speed * motor2Correction);
 
   delay(3000 - 80);
+}
+
+
+
+
+void setup() {
+  Serial.begin(9600);
+
+
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.display();
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.display();
+
+
+  // sensor setup
+  if (!lsm.begin()) {
+    Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
+    while (1)
+      ;
+  }
+  Serial.println("Found LSM9DS0 9DOF");
+  Serial.println("");
+  Serial.println("");
+  Serial.println("Setting up LSM9DS0 9DOF");
+  setupSensor();
+  delay(1);
+  imuCalibration();
+  displayGyro();
+  delay(500);
+
+
+  // pin setup
+  for (int i = 0; i < 6; i++) {
+    pinMode(allPins[i], OUTPUT);
+  }
+
+  // stop();
+  // calibrateCar();
+  // straight(100.0, true);
+  // stop();
+  // rotate(3.1415 * 2.000, true);
+  // stop();
+}
+
+void loop() {
+
+  straight(100.0);
+
+  // rotate(3.1415);
+  stop();
+  delay(10000);
 }

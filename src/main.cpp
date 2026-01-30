@@ -11,6 +11,8 @@
 #include <SPI.h>
 #include <Adafruit_LSM9DS0.h>
 #include <Adafruit_Sensor.h>  // not used in this demo but required!
+#include <xyz_type.h>
+#include <math.h>
 
 // screen
 Adafruit_SSD1306 display = Adafruit_SSD1306();
@@ -30,9 +32,9 @@ uint8_t motor1Pin1 = 1;
 uint8_t motor1Pin2 = 2;
 float motor1Correction = 1.00;
 
-uint8_t motor2En = 3;
-uint8_t motor2Pin1 = 6;
-uint8_t motor2Pin2 = 7;
+uint8_t motor2En = 21;
+uint8_t motor2Pin1 = 16;
+uint8_t motor2Pin2 = 17;
 float motor2Correction = 1.15;
 // goes left 1.1
 // goes right 1.2
@@ -58,6 +60,10 @@ double carX = 0.0;
 double carY = 0.0;
 float carVelocity = 0.0;
 float carTheta = 0.0;
+xyz_t accelVector;
+xyz_t magVector;
+xyz_t gyroVector;
+
 // -------------------------------------------
 // May need to implement Kalman filter
 // -------------------------------------------
@@ -65,7 +71,8 @@ float carTheta = 0.0;
 
 // uint8_t currentSpeed = 0;
 
-uint8_t allPins[] = {0, 1, 2, 3, 6, 7};
+uint8_t allPins[] = {motor1En, motor1Pin1, motor1Pin2,
+                     motor2En, motor2Pin1, motor2Pin2};
 
 
 
@@ -79,7 +86,7 @@ void setupSensor() {
 
   // 2.) Set the magnetometer sensitivity
   lsm.setupMag(lsm.LSM9DS0_MAGGAIN_2GAUSS);
-  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_4GAUSS);
+  // lsm.setupMag(lsm.LSM9DS0_MAGGAIN_4GAUSS);
   //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_8GAUSS);
   //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_12GAUSS);
 
@@ -89,26 +96,88 @@ void setupSensor() {
   // lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_2000DPS);
 }
 
-void readGyro() {
+void readIMU() {
   sensors_event_t accel, mag, gyro, temp;
   lsm.getEvent(&accel, &mag, &gyro, &temp);
   rollPitchYawVelocity[0] = (float)gyro.gyro.x - rollOffset;
   rollPitchYawVelocity[1] = (float)gyro.gyro.y - pitchOffset;
   rollPitchYawVelocity[2] = (float)gyro.gyro.z - yawOffset;
+  accelVector.x = accel.acceleration.x;
+  accelVector.y = accel.acceleration.y;
+  accelVector.z = accel.acceleration.z;
+  gyroVector.x = gyro.gyro.x;
+  gyroVector.y = gyro.gyro.y;
+  gyroVector.z = gyro.gyro.z;
+  magVector.x = mag.magnetic.x;
+  magVector.y = mag.magnetic.y;
+  magVector.z = mag.magnetic.z;
+
+}
+
+float getCurrentHeading() {
+  sensors_event_t accel, mag;
+  lsm.getEvent(&accel, &mag, NULL, NULL);
+  xyz_t accelVec = {accel.acceleration.x, accel.acceleration.y, accel.acceleration.z};
+  xyz_t magVec = {mag.magnetic.x, mag.magnetic.y, mag.magnetic.z};
+
+  xyz_t accelNorm = accelVec.normalized();
+  xyz_t magNorm = magVec.normalized();
+
+  xyz_t eastNorm = accelNorm.cross(magNorm).normalized();
+  xyz_t northNorm = eastNorm.cross(accelNorm).normalized();
+
+  float heading = atan2(northNorm.y, northNorm.x);
+
+  return heading;
+
+}
+
+void displayMag() {
+  display.clearDisplay();
+  readIMU();
+  display.setCursor(0, 0);
+  display.print("Mag x: ");
+  display.print(magVector.x);
+  display.setCursor(0, 8);
+  display.print("Mag y: ");
+  display.print(magVector.y);
+  display.setCursor(0, 16);
+  display.print("Mag z: ");
+  display.print(magVector.z);
+  display.setCursor(0, 24);
+  float heading = getCurrentHeading();
+  display.print("Heading: ");
+  display.print(heading);
+  display.display();
 }
 
 void displayGyro() {
   display.clearDisplay();
-  readGyro();
+  readIMU();
   display.setCursor(0, 0);
-  display.print("Roll: ");
-  display.print(rollPitchYawVelocity[0]);
+  display.print("Gyro x: ");
+  display.print(gyroVector.x);
   display.setCursor(0, 8);
-  display.print("Pitch: ");
-  display.print(rollPitchYawVelocity[1]);
+  display.print("Gyro y: ");
+  display.print(gyroVector.y);
   display.setCursor(0, 16);
-  display.print("Yaw: ");
-  display.print(rollPitchYawVelocity[2]);
+  display.print("Gyro z: ");
+  display.print(gyroVector.z);
+  display.display();
+}
+
+void displayAccel() {
+  display.clearDisplay();
+  readIMU();
+  display.setCursor(0, 0);
+  display.print("Accel x: ");
+  display.print(accelVector.x);
+  display.setCursor(0, 8);
+  display.print("Accel y: ");
+  display.print(accelVector.y);
+  display.setCursor(0, 16);
+  display.print("Accel z: ");
+  display.print(accelVector.z);
   display.display();
 }
 
@@ -175,7 +244,7 @@ void straight(float distanceInCm) {
   while (millis() < startTime + runTime) {
     if (millis() >= currentTime + timeStep) {
       currentTime = millis();
-      readGyro();
+      readIMU();
       carTheta += rollPitchYawVelocity[2] * ((float)timeStep / 1000.0);
       thetaError = carTheta - currentTheta;
 
@@ -221,7 +290,7 @@ void rotate(float thetaSet) {
 
     if (millis() >= currentTime + timeStep) {
       currentTime = millis();
-      readGyro();
+      readIMU();
       carTheta += rollPitchYawVelocity[2] * ((float)timeStep / 1000.0);
       // implementing P control (no ID)
       thetaError = thetaSet - carTheta;
@@ -321,15 +390,13 @@ void setup() {
   Serial.println("Setting up LSM9DS0 9DOF");
   setupSensor();
   delay(1);
-  imuCalibration();
-  displayGyro();
-  delay(500);
-
+  // imuCalibration();
 
   // pin setup
-  for (int i = 0; i < 6; i++) {
+  for(int i = 0; i < 6; i++) {
     pinMode(allPins[i], OUTPUT);
   }
+  
 
   // stop();
   // calibrateCar();
@@ -341,9 +408,9 @@ void setup() {
 
 void loop() {
 
-  straight(100.0);
-
-  // rotate(3.1415);
-  stop();
-  delay(10000);
+  float heading = getCurrentHeading();
+  Serial.print("Heading (radians): ");
+  Serial.println(heading);
+  displayMag();
+  delay(100);
 }

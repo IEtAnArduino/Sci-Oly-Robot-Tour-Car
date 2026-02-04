@@ -68,8 +68,8 @@ uint8_t allPins[] = {motor1En, motor1Pin1, motor1Pin2,
 void setupSensor()
 {
   // 1.) Set the accelerometer range
-  lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_2G);
-  // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_4G);
+  // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_2G);
+  lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_4G);
   // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_6G);
   // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_8G);
   // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_16G);
@@ -127,17 +127,15 @@ void displayMag()
   readIMU();
   display.setCursor(0, 0);
   display.print("Mag x: ");
-  display.print(magVector.x);
-  display.setCursor(0, 8);
+  display.println(magVector.x);
   display.print("Mag y: ");
-  display.print(magVector.y);
-  display.setCursor(0, 16);
+  display.println(magVector.y);
   display.print("Mag z: ");
-  display.print(magVector.z);
-  display.setCursor(0, 24);
+  display.println(magVector.z);
   float heading = getCurrentHeading();
   display.print("Heading: ");
-  display.print(heading);
+  display.println(heading);
+
   display.display();
 }
 
@@ -147,13 +145,12 @@ void displayGyro()
   readIMU();
   display.setCursor(0, 0);
   display.print("Gyro x: ");
-  display.print(gyroVector.x);
-  display.setCursor(0, 8);
+  display.println(gyroVector.x);
   display.print("Gyro y: ");
-  display.print(gyroVector.y);
-  display.setCursor(0, 16);
+  display.println(gyroVector.y);
   display.print("Gyro z: ");
-  display.print(gyroVector.z);
+  display.println(gyroVector.z);
+
   display.display();
 }
 
@@ -163,14 +160,16 @@ void displayAccel()
   readIMU();
   display.setCursor(0, 0);
   display.print("Accel x: ");
-  display.print(accelVector.x);
-  display.setCursor(0, 8);
+  display.println(accelVector.x, 4);
   display.print("Accel y: ");
-  display.print(accelVector.y);
-  display.setCursor(0, 16);
+  display.println(accelVector.y, 4);
   display.print("Accel z: ");
-  display.print(accelVector.z);
+  display.println(accelVector.z, 4);
+  display.print("Accel mag: ");
+  display.println(accelVector.magnitude(), 4);
+
   display.display();
+
 }
 
 void imuCalibration()
@@ -214,53 +213,79 @@ void stop()
 // ---------------------------------------------------------------------
 // INCOMPLETE! Need to incorporate distance tracking
 // ---------------------------------------------------------------------
-void straight(float distanceInCm)
+void straight(float displacement)
 {
-  int timeStep = 10; // milliseconds
-  int runTime = 3000;
-  unsigned long startTime = millis();
+  int timeStep = 5; // milliseconds
+  unsigned long startTime = micros();
   unsigned long currentTime = startTime;
   float currentTheta = carTheta;
   int kp = 250;
   float thetaError;
   // int ki = 30;
   // int kd = 0;
+  float position = 0; // in m
+  float velocity = 0; // in m/s
+  float positionError = displacement + position; // quirk of negative signs since forward is negative displacement (according to the accelerometer)
+  bool forward = (positionError > 0);
+
 
   // slow ramp up to avoid slipping
-  for (int i = 0; i < 255; i = i + 5)
+  for (int i = 0; i < max_speed; i = i + 5)
   {
     analogWrite(motor1En, i);
     analogWrite(motor2En, i);
-    delay(2);
+    delay(5);
   }
+  // possibly need to add ~4 cm to position to account for initial acceleration that is not integrated
+  // if(forward) {
+  //   position -= 0.04;
+  // } else {
+  //   position += 0.04;
+  // }
 
-  while (millis() < startTime + runTime)
+  while (abs(position) < abs(displacement))
   {
-    if (millis() >= currentTime + timeStep)
+    if (micros() >= currentTime + timeStep * 1000)
     {
-      currentTime = millis();
+      currentTime = micros();
       readIMU();
-      carTheta = getCurrentHeading();
+      // carTheta = getCurrentHeading(); // this led to shaky movement
+      carTheta += gyroVector.z * ((float)timeStep / 1000.0);
+      velocity += accelVector.x * ((float)timeStep / 1000.0);
+      position += velocity * ((float)timeStep / 1000.0);
       thetaError = carTheta - currentTheta;
+      positionError = displacement + position;
+      forward = (positionError > 0);
 
-      analogWrite(motor1En, default_speed - kp * thetaError);
-      analogWrite(motor2En, default_speed + kp * thetaError);
+      motor1Velocity = positionError * (default_speed - kp * thetaError);
+      motor2Velocity = positionError * (default_speed + kp * thetaError);
+      if(abs(motor1Velocity) > max_speed)
+      {
+        motor1Velocity = (motor1Velocity > 0) ? max_speed : -max_speed;
+      }
+      if(abs(motor2Velocity) > max_speed)
+      {
+        motor2Velocity = (motor2Velocity > 0) ? max_speed : -max_speed;
+      }
 
-      digitalWrite(motor1Pin1, HIGH);
-      digitalWrite(motor1Pin2, LOW);
-      digitalWrite(motor2Pin1, HIGH);
-      digitalWrite(motor2Pin2, LOW);
+      analogWrite(motor1En, abs(motor1Velocity));
+      analogWrite(motor2En, abs(motor2Velocity));
+
+      digitalWrite(motor1Pin1, forward);
+      digitalWrite(motor1Pin2, !forward);
+      digitalWrite(motor2Pin1, forward);
+      digitalWrite(motor2Pin2, !forward);
     }
   }
   stop();
   display.clearDisplay();
   display.setCursor(0, 0);
-  display.print("Yaw velocity: ");
-  display.println(gyroVector.z);
-  display.print("Car Theta: ");
-  display.println(carTheta);
-  display.print("Theta Error: ");
-  display.println(thetaError);
+  display.print("Acceleration: ");
+  display.println(accelVector.x);
+  display.print("Velocity: ");
+  display.println(velocity);
+  display.print("Position: ");
+  display.println(position);
   display.display();
 }
 
@@ -315,7 +340,7 @@ void rotate(float deltaTheta)
   {
     analogWrite(motor1En, i);
     analogWrite(motor2En, i);
-    delay(2);
+    delay(5);
   }
 
   // make sure car only stops at set point and is at rest
@@ -344,10 +369,10 @@ void rotate(float deltaTheta)
       int motorVelocity = thetaError * kp + ki * thetaErrorI; // + kd * thetaErrorD;
       ccw = (thetaError > 0);
       int motorSpeed = abs(motorVelocity);
-      if (motorSpeed > max_speed)
+      if (motorSpeed > default_speed)
       {
-        analogWrite(motor1En, max_speed);
-        analogWrite(motor2En, max_speed);
+        analogWrite(motor1En, default_speed);
+        analogWrite(motor2En, default_speed);
       }
       else
       {
@@ -425,22 +450,25 @@ void setup()
   Serial.println(carTheta);
   displayGyro();
   delay(2000);
+  displayAccel();
+  delay(2000);
 
+  stop();
+  straight(1.0);
+  stop();
+  delay(1000);
+  // straight(-1.0);
   // stop();
-  // calibrateCar();
-  // straight(100.0, true);
-  // stop();
-  // rotate(3.1415 * 2.000, true);
-  // stop();
+  // delay(1000);
+
 }
 
 void loop()
 {
-
-  rotate(-3.1415 / 2.0);
-  stop();
-  delay(1000);
-  rotate(3.1415 / 2.0);
-  stop();
-  delay(1000);
+  // straight(1.0);
+  // stop();
+  // delay(1000);
+  // straight(1.0);
+  // stop();
+  // delay(1000);
 }

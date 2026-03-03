@@ -13,11 +13,24 @@
 #include <xyz_type.h>
 #include <math.h>
 
+
+
 // screen
-Adafruit_SSD1306 display = Adafruit_SSD1306();
+// Adafruit_SSD1306 display = Adafruit_SSD1306();
+
+// ---------------- encoder variables ----------------
+const uint8_t m1EncoderPinA = 16;
+const uint8_t m1EncoderPinB = 17;
+const uint8_t m2EncoderPinA = 19;
+const uint8_t m2EncoderPinB = 20;
+
+
+
+// ---------------- IMU variables ----------------
+
 
 // IMU i2c
-Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0();
+// Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0();
 
 // gyro calibration offsets
 float rollOffset;  // around x axis
@@ -34,6 +47,11 @@ float xHardOffset = -12.88;
 float yHardOffset = -5.13;
 float zHardOffset = 3.49;
 
+
+
+// ----------------- motor variables ----------------
+
+
 // motor 1 on right, motor 2 on left
 uint8_t motor1En = 0;
 uint8_t motor1Pin1 = 1;
@@ -41,8 +59,8 @@ uint8_t motor1Pin2 = 2;
 float motor1Correction = 1.00;
 
 uint8_t motor2En = 21;
-uint8_t motor2Pin1 = 16;
-uint8_t motor2Pin2 = 17;
+uint8_t motor2Pin1 = 22;
+uint8_t motor2Pin2 = 23;
 float motor2Correction = 1.15;
 // goes left 1.1
 // goes right 1.2
@@ -688,27 +706,27 @@ void setup()
 {
   Serial.begin(9600);
 
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  display.display();
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.display();
+  // display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  // display.display();
+  // display.clearDisplay();
+  // display.setTextSize(1);
+  // display.setTextColor(WHITE);
+  // display.display();
 
   // sensor setup
-  if (!lsm.begin())
-  {
-    Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
-    while (1)
-      ;
-  }
-  Serial.println("Found LSM9DS0 9DOF");
-  Serial.println("");
-  Serial.println("");
-  Serial.println("Setting up LSM9DS0 9DOF");
-  setupSensor();
-  delay(1000);
-  imuCalibration();
+  // if (!lsm.begin())
+  // {
+  //   Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
+  //   while (1)
+  //     ;
+  // }
+  // Serial.println("Found LSM9DS0 9DOF");
+  // Serial.println("");
+  // Serial.println("");
+  // Serial.println("Setting up LSM9DS0 9DOF");
+  // setupSensor();
+  // delay(1000);
+  // imuCalibration();
 
   // pin setup
   for (int i = 0; i < 6; i++)
@@ -716,13 +734,13 @@ void setup()
     pinMode(allPins[i], OUTPUT);
   }
 
-  carTheta = getCurrentHeading();
-  Serial.print("Initial Heading (radians): ");
-  Serial.println(carTheta);
-  displayGyro();
-  delay(1);
-  displayAccel(true);
-  delay(1000);
+  // carTheta = getCurrentHeading();
+  // Serial.print("Initial Heading (radians): ");
+  // Serial.println(carTheta);
+  // displayGyro();
+  // delay(1);
+  // displayAccel(true);
+  // delay(1000);
 
   stop();
   // rotateGyro(3.1415 / 2);
@@ -743,11 +761,17 @@ void setup()
   // straight(-0.5);
   // stop();
 
-  executePath();
+  // executePath();
+
+  digitalWrite(motor1Pin1, LOW);
+  digitalWrite(motor1Pin2, HIGH);
+  digitalWrite(motor2Pin1, LOW);
+  digitalWrite(motor2Pin2, HIGH);
+  analogWrite(motor1En, 200);
+  analogWrite(motor2En, 200);
 }
 
 void loop()
 {
-  displayAccel(true);
   delay(500);
 }

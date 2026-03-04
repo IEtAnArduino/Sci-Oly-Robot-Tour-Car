@@ -14,6 +14,8 @@
 #include <math.h>
 
 
+const float wheelRadius = .03208655; // meters
+
 
 // screen
 // Adafruit_SSD1306 display = Adafruit_SSD1306();
@@ -23,7 +25,8 @@ const uint8_t m1EncoderPinA = 16;
 const uint8_t m1EncoderPinB = 17;
 const uint8_t m2EncoderPinA = 19;
 const uint8_t m2EncoderPinB = 20;
-
+int32_t m1EncoderCount = 0;
+int32_t m2EncoderCount = 0;
 
 
 // ---------------- IMU variables ----------------
@@ -90,220 +93,220 @@ xyz_t downVector;
 uint8_t allPins[] = {motor1En, motor1Pin1, motor1Pin2,
                      motor2En, motor2Pin1, motor2Pin2};
 
-void setupSensor()
-{
-  // 1.) Set the accelerometer range
-  // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_2G);
-  lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_4G);
-  // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_6G);
-  // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_8G);
-  // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_16G);
+// void setupSensor()
+// {
+//   // 1.) Set the accelerometer range
+//   // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_2G);
+//   lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_4G);
+//   // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_6G);
+//   // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_8G);
+//   // lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_16G);
 
-  // 2.) Set the magnetometer sensitivity
-  lsm.setupMag(lsm.LSM9DS0_MAGGAIN_2GAUSS);
-  // lsm.setupMag(lsm.LSM9DS0_MAGGAIN_4GAUSS);
-  // lsm.setupMag(lsm.LSM9DS0_MAGGAIN_8GAUSS);
-  // lsm.setupMag(lsm.LSM9DS0_MAGGAIN_12GAUSS);
+//   // 2.) Set the magnetometer sensitivity
+//   lsm.setupMag(lsm.LSM9DS0_MAGGAIN_2GAUSS);
+//   // lsm.setupMag(lsm.LSM9DS0_MAGGAIN_4GAUSS);
+//   // lsm.setupMag(lsm.LSM9DS0_MAGGAIN_8GAUSS);
+//   // lsm.setupMag(lsm.LSM9DS0_MAGGAIN_12GAUSS);
 
-  // 3.) Setup the gyroscope
-  lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_245DPS);
-  // lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_500DPS);
-  // lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_2000DPS);
-}
+//   // 3.) Setup the gyroscope
+//   lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_245DPS);
+//   // lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_500DPS);
+//   // lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_2000DPS);
+// }
 
-void imuCalibration()
-{
-  int sampleSize = 100;
-  float avg_x_rot = 0;
-  float avg_y_rot = 0;
-  float avg_z_rot = 0;
+// void imuCalibration()
+// {
+//   int sampleSize = 100;
+//   float avg_x_rot = 0;
+//   float avg_y_rot = 0;
+//   float avg_z_rot = 0;
 
-  float avg_x_accel = 0;
-  float avg_y_accel = 0;
-  float avg_z_accel = 0;
+//   float avg_x_accel = 0;
+//   float avg_y_accel = 0;
+//   float avg_z_accel = 0;
 
-  for (int i = 0; i < sampleSize; i++)
-  {
-    sensors_event_t accel, mag, gyro, temp;
-    lsm.getEvent(&accel, &mag, &gyro, &temp);
-    avg_x_rot += gyro.gyro.x;
-    avg_y_rot += gyro.gyro.y;
-    avg_z_rot += gyro.gyro.z;
-    avg_x_accel += accel.acceleration.x;
-    avg_y_accel += accel.acceleration.y;
-    avg_z_accel += accel.acceleration.z;
-    delay(10);
-  }
+//   for (int i = 0; i < sampleSize; i++)
+//   {
+//     sensors_event_t accel, mag, gyro, temp;
+//     lsm.getEvent(&accel, &mag, &gyro, &temp);
+//     avg_x_rot += gyro.gyro.x;
+//     avg_y_rot += gyro.gyro.y;
+//     avg_z_rot += gyro.gyro.z;
+//     avg_x_accel += accel.acceleration.x;
+//     avg_y_accel += accel.acceleration.y;
+//     avg_z_accel += accel.acceleration.z;
+//     delay(10);
+//   }
 
-  rollOffset = avg_x_rot / sampleSize;
-  pitchOffset = avg_y_rot / sampleSize;
-  yawOffset = avg_z_rot / sampleSize;
+//   rollOffset = avg_x_rot / sampleSize;
+//   pitchOffset = avg_y_rot / sampleSize;
+//   yawOffset = avg_z_rot / sampleSize;
 
-  xAccelOffset = avg_x_accel / sampleSize;
-  yAccelOffset = avg_y_accel / sampleSize;
-  zAccelOffset = avg_z_accel / sampleSize;
+//   xAccelOffset = avg_x_accel / sampleSize;
+//   yAccelOffset = avg_y_accel / sampleSize;
+//   zAccelOffset = avg_z_accel / sampleSize;
 
-  downVector = {xAccelOffset, yAccelOffset, zAccelOffset};
+//   downVector = {xAccelOffset, yAccelOffset, zAccelOffset};
 
-  Serial.print("Roll Offset: ");
-  Serial.println(rollOffset);
-  Serial.print("Pitch Offset: ");
-  Serial.println(pitchOffset);
-  Serial.print("Yaw Offset: ");
-  Serial.println(yawOffset);
-  Serial.print("X Accel Offset: ");
-  Serial.println(xAccelOffset);
-  Serial.print("Y Accel Offset: ");
-  Serial.println(yAccelOffset);
-  Serial.print("Z Accel Offset: ");
-  Serial.println(zAccelOffset);
-}
+//   Serial.print("Roll Offset: ");
+//   Serial.println(rollOffset);
+//   Serial.print("Pitch Offset: ");
+//   Serial.println(pitchOffset);
+//   Serial.print("Yaw Offset: ");
+//   Serial.println(yawOffset);
+//   Serial.print("X Accel Offset: ");
+//   Serial.println(xAccelOffset);
+//   Serial.print("Y Accel Offset: ");
+//   Serial.println(yAccelOffset);
+//   Serial.print("Z Accel Offset: ");
+//   Serial.println(zAccelOffset);
+// }
 
-void readIMU()
-{
-  sensors_event_t accel, mag, gyro, temp;
-  lsm.getEvent(&accel, &mag, &gyro, &temp);
-  accelVector.x = accel.acceleration.x;
-  accelVector.y = accel.acceleration.y;
-  accelVector.z = accel.acceleration.z;
-  gyroVector.x = gyro.gyro.x;
-  gyroVector.y = gyro.gyro.y;
-  gyroVector.z = gyro.gyro.z;
-  magVector.x = mag.magnetic.x;
-  magVector.y = mag.magnetic.y;
-  magVector.z = mag.magnetic.z;
-}
+// void readIMU()
+// {
+//   sensors_event_t accel, mag, gyro, temp;
+//   lsm.getEvent(&accel, &mag, &gyro, &temp);
+//   accelVector.x = accel.acceleration.x;
+//   accelVector.y = accel.acceleration.y;
+//   accelVector.z = accel.acceleration.z;
+//   gyroVector.x = gyro.gyro.x;
+//   gyroVector.y = gyro.gyro.y;
+//   gyroVector.z = gyro.gyro.z;
+//   magVector.x = mag.magnetic.x;
+//   magVector.y = mag.magnetic.y;
+//   magVector.z = mag.magnetic.z;
+// }
 
-void readIMUAdjusted()
-{
-  sensors_event_t accel, mag, gyro, temp;
-  lsm.getEvent(&accel, &mag, &gyro, &temp);
-  accelVector.x = accel.acceleration.x - downVector.x;
-  accelVector.y = accel.acceleration.y - downVector.y;
-  accelVector.z = accel.acceleration.z - downVector.z;
-  gyroVector.x = gyro.gyro.x - rollOffset;
-  gyroVector.y = gyro.gyro.y - pitchOffset;
-  gyroVector.z = gyro.gyro.z - yawOffset;
-  magVector.x = mag.magnetic.x - xHardOffset;
-  magVector.y = mag.magnetic.y - yHardOffset;
-  magVector.z = mag.magnetic.z - zHardOffset;
-}
+// void readIMUAdjusted()
+// {
+//   sensors_event_t accel, mag, gyro, temp;
+//   lsm.getEvent(&accel, &mag, &gyro, &temp);
+//   accelVector.x = accel.acceleration.x - downVector.x;
+//   accelVector.y = accel.acceleration.y - downVector.y;
+//   accelVector.z = accel.acceleration.z - downVector.z;
+//   gyroVector.x = gyro.gyro.x - rollOffset;
+//   gyroVector.y = gyro.gyro.y - pitchOffset;
+//   gyroVector.z = gyro.gyro.z - yawOffset;
+//   magVector.x = mag.magnetic.x - xHardOffset;
+//   magVector.y = mag.magnetic.y - yHardOffset;
+//   magVector.z = mag.magnetic.z - zHardOffset;
+// }
 
-// must be calibrated while stationary to get accurate down vector
-float getCurrentHeading()
-{
-  sensors_event_t accel, mag;
-  lsm.getEvent(&accel, &mag, NULL, NULL);
+// // must be calibrated while stationary to get accurate down vector
+// float getCurrentHeading()
+// {
+//   sensors_event_t accel, mag;
+//   lsm.getEvent(&accel, &mag, NULL, NULL);
 
-  // downVector = {accel.acceleration.x, accel.acceleration.y, accel.acceleration.z};
-  xyz_t downVecNorm = downVector.normalized();
+//   // downVector = {accel.acceleration.x, accel.acceleration.y, accel.acceleration.z};
+//   xyz_t downVecNorm = downVector.normalized();
 
-  xyz_t magVec = {mag.magnetic.x, mag.magnetic.y, mag.magnetic.z};
+//   xyz_t magVec = {mag.magnetic.x, mag.magnetic.y, mag.magnetic.z};
 
-  xyz_t magNorm = magVec.normalized();
+//   xyz_t magNorm = magVec.normalized();
 
-  xyz_t eastNorm = downVecNorm.cross(magNorm).normalized();
-  xyz_t northNorm = eastNorm.cross(downVecNorm).normalized();
+//   xyz_t eastNorm = downVecNorm.cross(magNorm).normalized();
+//   xyz_t northNorm = eastNorm.cross(downVecNorm).normalized();
 
-  // set north to be 0 radians
-  float heading = -atan2(northNorm.y, northNorm.x);
+//   // set north to be 0 radians
+//   float heading = -atan2(northNorm.y, northNorm.x);
 
-  return heading;
-}
+//   return heading;
+// }
 
-void displayMag(bool raw = false)
-{
-  if (raw)
-  {
-    readIMU();
-  }
-  else
-  {
-    readIMUAdjusted();
-  }
+// void displayMag(bool raw = false)
+// {
+//   if (raw)
+//   {
+//     readIMU();
+//   }
+//   else
+//   {
+//     readIMUAdjusted();
+//   }
 
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("Mag x: ");
-  display.println(magVector.x);
-  display.print("Mag y: ");
-  display.println(magVector.y);
-  display.print("Mag z: ");
-  display.println(magVector.z);
-  float heading = getCurrentHeading();
-  display.print("Heading: ");
-  display.println(heading);
-  display.display();
+//   display.clearDisplay();
+//   display.setCursor(0, 0);
+//   display.print("Mag x: ");
+//   display.println(magVector.x);
+//   display.print("Mag y: ");
+//   display.println(magVector.y);
+//   display.print("Mag z: ");
+//   display.println(magVector.z);
+//   float heading = getCurrentHeading();
+//   display.print("Heading: ");
+//   display.println(heading);
+//   display.display();
 
-  Serial.print("Mag x: ");
-  Serial.println(magVector.x);
-  Serial.print("Mag y: ");
-  Serial.println(magVector.y);
-  Serial.print("Mag z: ");
-  Serial.println(magVector.z);
-  Serial.print("Heading: ");
-  Serial.println(heading);
-}
+//   Serial.print("Mag x: ");
+//   Serial.println(magVector.x);
+//   Serial.print("Mag y: ");
+//   Serial.println(magVector.y);
+//   Serial.print("Mag z: ");
+//   Serial.println(magVector.z);
+//   Serial.print("Heading: ");
+//   Serial.println(heading);
+// }
 
-void displayGyro(bool raw = false)
-{
-  if (raw)
-  {
-    readIMU();
-  }
-  else
-  {
-    readIMUAdjusted();
-  }
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("Gyro x: ");
-  display.println(gyroVector.x);
-  display.print("Gyro y: ");
-  display.println(gyroVector.y);
-  display.print("Gyro z: ");
-  display.println(gyroVector.z);
-  display.display();
+// void displayGyro(bool raw = false)
+// {
+//   if (raw)
+//   {
+//     readIMU();
+//   }
+//   else
+//   {
+//     readIMUAdjusted();
+//   }
+//   display.clearDisplay();
+//   display.setCursor(0, 0);
+//   display.print("Gyro x: ");
+//   display.println(gyroVector.x);
+//   display.print("Gyro y: ");
+//   display.println(gyroVector.y);
+//   display.print("Gyro z: ");
+//   display.println(gyroVector.z);
+//   display.display();
 
-  Serial.print("Gyro x: ");
-  Serial.println(gyroVector.x);
-  Serial.print("Gyro y: ");
-  Serial.println(gyroVector.y);
-  Serial.print("Gyro z: ");
-  Serial.println(gyroVector.z);
-}
+//   Serial.print("Gyro x: ");
+//   Serial.println(gyroVector.x);
+//   Serial.print("Gyro y: ");
+//   Serial.println(gyroVector.y);
+//   Serial.print("Gyro z: ");
+//   Serial.println(gyroVector.z);
+// }
 
-void displayAccel(bool raw = false)
-{
-  if (raw)
-  {
-    readIMU();
-  }
-  else
-  {
-    readIMUAdjusted();
-  }
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("Accel x: ");
-  display.println(accelVector.x, 4);
-  display.print("Accel y: ");
-  display.println(accelVector.y, 4);
-  display.print("Accel z: ");
-  display.println(accelVector.z, 4);
-  display.print("Accel mag: ");
-  display.println(accelVector.magnitude(), 4);
-  display.display();
+// void displayAccel(bool raw = false)
+// {
+//   if (raw)
+//   {
+//     readIMU();
+//   }
+//   else
+//   {
+//     readIMUAdjusted();
+//   }
+//   display.clearDisplay();
+//   display.setCursor(0, 0);
+//   display.print("Accel x: ");
+//   display.println(accelVector.x, 4);
+//   display.print("Accel y: ");
+//   display.println(accelVector.y, 4);
+//   display.print("Accel z: ");
+//   display.println(accelVector.z, 4);
+//   display.print("Accel mag: ");
+//   display.println(accelVector.magnitude(), 4);
+//   display.display();
 
-  Serial.print("Accel x: ");
-  Serial.println(accelVector.x, 4);
-  Serial.print("Accel y: ");
-  Serial.println(accelVector.y, 4);
-  Serial.print("Accel z: ");
-  Serial.println(accelVector.z, 4);
-  Serial.print("Accel mag: ");
-  Serial.println(accelVector.magnitude(), 4);
-}
+//   Serial.print("Accel x: ");
+//   Serial.println(accelVector.x, 4);
+//   Serial.print("Accel y: ");
+//   Serial.println(accelVector.y, 4);
+//   Serial.print("Accel z: ");
+//   Serial.println(accelVector.z, 4);
+//   Serial.print("Accel mag: ");
+//   Serial.println(accelVector.magnitude(), 4);
+// }
 
 void stop()
 {
@@ -314,397 +317,465 @@ void stop()
   delay(stopTime);
 }
 
-void straight(float displacement)
-{
+// void straight(float displacement)
+// {
 
-  float kp_theta = 250.0;
-  float kp_velocity = 1.0;
-  // int ki = 30;
-  // int kd = 0;
+//   float kp_theta = 250.0;
+//   float kp_velocity = 1.0;
+//   // int ki = 30;
+//   // int kd = 0;
 
-  int timeStep = 5; // milliseconds
-  int displayTimer = 0;
-  unsigned long currentTime = micros();
+//   int timeStep = 5; // milliseconds
+//   int displayTimer = 0;
+//   unsigned long currentTime = micros();
 
-  float position = 0.0;                          // in m
-  float velocity = 0.0;                          // in m/s
-  float positionError = displacement + position; // quirk of negative signs since forward is negative displacement (according to the accelerometer)
-  bool forward = (positionError > 0);
+//   float position = 0.0;                          // in m
+//   float velocity = 0.0;                          // in m/s
+//   float positionError = displacement + position; // quirk of negative signs since forward is negative displacement (according to the accelerometer)
+//   bool forward = (positionError > 0);
 
-  float currentTheta = carTheta;
-  float thetaError;
+//   float currentTheta = carTheta;
+//   float thetaError;
 
-  /*
-  // slow ramp up to avoid slipping
-  for (int i = 0; i < maxSpeed; i = i + 5)
+//   /*
+//   // slow ramp up to avoid slipping
+//   for (int i = 0; i < maxSpeed; i = i + 5)
+//   {
+//     analogWrite(motor1En, i);
+//     analogWrite(motor2En, i);
+//     delay(5);
+//   }
+//   */
+
+//   while (abs(position) < abs(displacement))
+//     if (micros() >= currentTime + timeStep * 1000)
+//     {
+//       currentTime = micros();
+//       readIMUAdjusted();
+//       carTheta += gyroVector.z * ((float)timeStep / 1000.0);
+//       thetaError = carTheta - currentTheta;
+
+//       // float accelAdjusted = (forward) ? accelVector.x + xAccelOffset : accelVector.x + 0.3;
+
+//       readIMU();
+//       velocity += accelVector.x * ((float)timeStep / 1000.0);
+//       position += velocity * ((float)timeStep / 1000.0);
+//       positionError = displacement + position;
+//       forward = (positionError > 0);
+//       if (!forward)
+//       {
+//         thetaError = -thetaError; // need to flip theta error when going forward since positive theta error means we need to turn right, which means we need more power on the left motor, which means we need a negative theta error for the motor control equation to work out
+//       }
+
+//       motor1Velocity = positionError * (defaultStraightSpeed - kp_theta * thetaError);
+//       motor2Velocity = positionError * (defaultStraightSpeed + kp_theta * thetaError);
+//       if (abs(motor1Velocity) > maxSpeed)
+//       {
+//         motor1Velocity = maxSpeed;
+//       }
+//       if (abs(motor2Velocity) > maxSpeed)
+//       {
+//         motor2Velocity = maxSpeed;
+//       }
+
+//       analogWrite(motor1En, abs(motor1Velocity));
+//       analogWrite(motor2En, abs(motor2Velocity));
+
+//       digitalWrite(motor1Pin1, forward);
+//       digitalWrite(motor1Pin2, !forward);
+//       digitalWrite(motor2Pin1, forward);
+//       digitalWrite(motor2Pin2, !forward);
+
+//       displayTimer++;
+//       if (displayTimer >= 50)
+//       {
+//         display.clearDisplay();
+//         display.setCursor(0, 0);
+//         display.print("Acceleration: ");
+//         display.println(accelVector.x);
+//         display.print("Velocity: ");
+//         display.println(velocity);
+//         display.print("Position: ");
+//         display.println(position);
+//         display.print("Pos Error: ");
+//         display.println(positionError);
+//         display.display();
+//         displayTimer = 0;
+//       }
+//     }
+
+//   display.clearDisplay();
+//   display.setCursor(0, 0);
+//   display.print("Acceleration: ");
+//   display.println(accelVector.x);
+//   display.print("Velocity: ");
+//   display.println(velocity);
+//   display.print("Position: ");
+//   display.println(position);
+//   display.print("Pos Error: ");
+//   display.println(positionError);
+//   display.display();
+// }
+
+// // relies on gyroscope for heading, integrating angular velocity
+// void rotateGyro(float deltaTheta)
+// {
+//   // deltaTheta is desired angular displacement from current heading, in radians
+
+//   int timeStep = 10; // milliseconds
+//   int kp = 200;      // oscillates slightly at 600, IMU starts to drift
+//   int ki = 30;
+//   // int kd = 0;
+//   float ANGULAR_CORRECTION = 90.0 / 106.0;
+
+//   int displayTimer = 0;
+//   unsigned long currentTime = millis();
+//   float thetaSet = carTheta + ANGULAR_CORRECTION * deltaTheta;
+
+//   // wrap thetaSet to be within -pi to pi
+//   while (thetaSet > 3.1415)
+//   {
+//     thetaSet -= 2.0 * 3.1415;
+//   }
+
+//   while (thetaSet < -3.1415)
+//   {
+//     thetaSet += 2.0 * 3.1415;
+//   }
+
+//   float thetaError = thetaSet - carTheta;
+//   // Normalize thetaError to [-pi, pi] for shortest rotation
+//   while (thetaError > 3.1415)
+//   {
+//     thetaError -= 2.0 * 3.1415;
+//   }
+//   while (thetaError < -3.1415)
+//   {
+//     thetaError += 2.0 * 3.1415;
+//   }
+//   // static float thetaErrorOld = thetaSet - carTheta;
+//   float thetaErrorI = 0.0;
+//   // static float thetaErrorD;
+
+//   float initialThetaError = thetaError;
+
+//   bool ccw = (thetaError > 0);
+//   /*
+//   digitalWrite(motor1Pin1, ccw);
+//   digitalWrite(motor1Pin2, !ccw);
+//   digitalWrite(motor2Pin1, !ccw);
+//   digitalWrite(motor2Pin2, ccw);
+
+//   // slow ramp up to avoid slipping
+//   for (int i = 0; i < 255; i = i + 5)
+//   {
+//     analogWrite(motor1En, i);
+//     analogWrite(motor2En, i);
+//     delay(5);
+//   }
+// */
+
+//   // make sure car only stops at set point and is at rest
+//   while (abs(thetaError) > 0.02 * abs(initialThetaError) || abs(gyroVector.z) > 0.02)
+//   {
+
+//     if (millis() >= currentTime + timeStep)
+//     {
+//       currentTime = millis();
+//       readIMUAdjusted();
+//       carTheta += gyroVector.z * ((float)timeStep / 1000.0);
+//       // implementing PI control (no D)
+//       thetaError = thetaSet - carTheta;
+//       // Normalize thetaError to [-pi, pi] for shortest rotation
+//       while (thetaError > 3.1415)
+//       {
+//         thetaError -= 2.0 * 3.1415;
+//       }
+//       while (thetaError < -3.1415)
+//       {
+//         thetaError += 2.0 * 3.1415;
+//       }
+//       thetaErrorI += thetaError * ((float)timeStep / 1000.0);
+//       // thetaErrorD = (thetaError - thetaErrorOld) / ((float)timeStep / 1000.0);
+//       // thetaErrorOld = thetaError;
+
+//       // PI control
+//       int motorVelocity = thetaError * kp + ki * thetaErrorI; // + kd * thetaErrorD;
+//       ccw = (thetaError > 0);
+//       int motorSpeed = abs(motorVelocity);
+//       if (motorSpeed > defaultTurnSpeed)
+//       {
+//         analogWrite(motor1En, defaultTurnSpeed);
+//         analogWrite(motor2En, defaultTurnSpeed);
+//       }
+//       else
+//       {
+//         analogWrite(motor1En, abs(motorVelocity));
+//         analogWrite(motor2En, abs(motorVelocity));
+//       }
+
+//       digitalWrite(motor1Pin1, ccw);
+//       digitalWrite(motor1Pin2, !ccw);
+//       digitalWrite(motor2Pin1, !ccw);
+//       digitalWrite(motor2Pin2, ccw);
+
+//       displayTimer++;
+//       if (displayTimer == 20)
+//       {
+//         display.clearDisplay();
+//         display.setCursor(0, 0);
+//         display.print("Yaw velocity: ");
+//         display.println(gyroVector.z);
+//         display.print("Car Theta: ");
+//         display.println(carTheta);
+//         display.print("Theta Error: ");
+//         display.println(thetaError);
+//         display.display();
+//         displayTimer = 0;
+//       }
+//     }
+//   }
+//   display.clearDisplay();
+//   display.setCursor(0, 0);
+//   display.print("Yaw velocity: ");
+//   display.println(gyroVector.z);
+//   display.print("Car Theta: ");
+//   display.println(carTheta);
+//   display.print("Theta Error: ");
+//   display.println(thetaError);
+//   display.display();
+//   displayTimer = 0;
+// }
+
+// // relies on magnetometer for heading
+// // currently unreliable, possibly due to noisy mag readings and/or hard/soft iron offsets
+// void rotateMagnet(float deltaTheta)
+// {
+//   // deltaTheta is desired angular displacement from current heading, in radians
+
+//   int timeStep = 10; // milliseconds
+//   int kp = 200;      // oscillates slightly at 600, IMU starts to drift
+//   int ki = 30;
+//   // int kd = 0;
+
+//   int displayTimer = 0;
+//   unsigned long currentTime = millis();
+//   float thetaSet = carTheta + deltaTheta;
+
+//   // wrap thetaSet to be within -pi to pi
+//   while (thetaSet > 3.1415)
+//   {
+//     thetaSet -= 2.0 * 3.1415;
+//   }
+
+//   while (thetaSet < -3.1415)
+//   {
+//     thetaSet += 2.0 * 3.1415;
+//   }
+
+//   float thetaError = thetaSet - carTheta;
+//   // Normalize thetaError to [-pi, pi] for shortest rotation
+//   while (thetaError > 3.1415)
+//   {
+//     thetaError -= 2.0 * 3.1415;
+//   }
+//   while (thetaError < -3.1415)
+//   {
+//     thetaError += 2.0 * 3.1415;
+//   }
+//   // static float thetaErrorOld = thetaSet - carTheta;
+//   float thetaErrorI = 0.0;
+//   // static float thetaErrorD;
+
+//   float initialThetaError = thetaError;
+
+//   bool ccw = (thetaError > 0);
+//   digitalWrite(motor1Pin1, ccw);
+//   digitalWrite(motor1Pin2, !ccw);
+//   digitalWrite(motor2Pin1, !ccw);
+//   digitalWrite(motor2Pin2, ccw);
+
+//   // slow ramp up to avoid slipping
+//   for (int i = 0; i < 255; i = i + 5)
+//   {
+//     analogWrite(motor1En, i);
+//     analogWrite(motor2En, i);
+//     delay(5);
+//   }
+
+//   // make sure car only stops at set point and is at rest
+//   while (abs(thetaError) > 0.02 * abs(initialThetaError) || abs(gyroVector.z) > 0.02)
+//   {
+
+//     if (millis() >= currentTime + timeStep)
+//     {
+//       currentTime = millis();
+//       readIMUAdjusted();
+//       carTheta = getCurrentHeading();
+//       // implementing P control (no ID)
+//       thetaError = thetaSet - carTheta;
+//       // Normalize thetaError to [-pi, pi] for shortest rotation
+//       while (thetaError > 3.1415)
+//       {
+//         thetaError -= 2.0 * 3.1415;
+//       }
+//       while (thetaError < -3.1415)
+//       {
+//         thetaError += 2.0 * 3.1415;
+//       }
+//       thetaErrorI += thetaError * ((float)timeStep / 1000.0);
+//       // thetaErrorD = (thetaError - thetaErrorOld) / ((float)timeStep / 1000.0);
+//       // thetaErrorOld = thetaError;
+//       int motorVelocity = thetaError * kp + ki * thetaErrorI; // + kd * thetaErrorD;
+//       ccw = (thetaError > 0);
+//       int motorSpeed = abs(motorVelocity);
+//       if (motorSpeed > defaultTurnSpeed)
+//       {
+//         analogWrite(motor1En, defaultTurnSpeed);
+//         analogWrite(motor2En, defaultTurnSpeed);
+//       }
+//       else
+//       {
+//         analogWrite(motor1En, abs(motorVelocity));
+//         analogWrite(motor2En, abs(motorVelocity));
+//       }
+
+//       digitalWrite(motor1Pin1, ccw);
+//       digitalWrite(motor1Pin2, !ccw);
+//       digitalWrite(motor2Pin1, !ccw);
+//       digitalWrite(motor2Pin2, ccw);
+
+//       displayTimer++;
+//       if (displayTimer == 100)
+//       {
+//         display.clearDisplay();
+//         display.setCursor(0, 0);
+//         display.print("Yaw velocity: ");
+//         display.println(gyroVector.z);
+//         display.print("Car Theta: ");
+//         display.println(carTheta);
+//         display.print("Theta Error: ");
+//         display.println(thetaError);
+//         display.display();
+//         displayTimer = 0;
+//       }
+//     }
+//   }
+
+//   display.clearDisplay();
+//   display.setCursor(0, 0);
+//   display.print("Yaw velocity: ");
+//   display.println(gyroVector.z);
+//   display.print("Car Theta: ");
+//   display.println(carTheta);
+//   display.print("Theta Error: ");
+//   display.println(thetaError);
+//   display.display();
+// }
+
+// void executePath()
+// {
+//   // example path: square
+//   straight(0.5);
+//   stop();
+//   delay(1000);
+//   rotateGyro(3.1415 / 2);
+//   stop();
+//   delay(1000);
+
+//   straight(0.5);
+//   stop();
+//   delay(1000);
+//   rotateGyro(3.1415 / 2);
+//   stop();
+//   delay(1000);
+
+//   straight(0.5);
+//   stop();
+//   delay(1000);
+//   rotateGyro(3.1415 / 2);
+//   stop();
+//   delay(1000);
+
+//   straight(0.5);
+//   stop();
+//   delay(1000);
+//   rotateGyro(3.1415 / 2);
+//   stop();
+//   delay(1000);
+// }
+
+
+void m1HandleEncoderInterrupt() {
+  if (digitalRead(m1EncoderPinB) == LOW) {
+    ++m1EncoderCount;
+  } else {
+    --m1EncoderCount;
+  }
+}
+
+void m2HandleEncoderInterrupt() {
+  if (digitalRead(m2EncoderPinB) == LOW) {
+    ++m2EncoderCount;
+  } else {
+    --m2EncoderCount;
+  }
+}
+
+void goStraight(float distanceInMeters) {
+
+  const int cpr = 12 * 90 * 1;
+  const int numRevolutions = distanceInMeters / (2 * 3.1415 * wheelRadius);
+  int targetCount = numRevolutions * cpr;
+
+  const float k = 1;
+
+  int m1Error = targetCount - m1EncoderCount;
+  int m2Error = targetCount - m2EncoderCount;
+  int differentialError = m1EncoderCount - m2EncoderCount;  // difference between wheels
+
+  bool forward = (m1Error < 0);
+
+  digitalWrite(motor1Pin1, forward);
+  digitalWrite(motor1Pin2, !forward);
+  digitalWrite(motor2Pin1, forward);
+  digitalWrite(motor2Pin2, !forward);  
+
+  for (int i = 0; i < defaultStraightSpeed; i = i + 5)
   {
     analogWrite(motor1En, i);
     analogWrite(motor2En, i);
-    delay(5);
-  }
-  */
-
-  while (abs(position) < abs(displacement))
-    if (micros() >= currentTime + timeStep * 1000)
-    {
-      currentTime = micros();
-      readIMUAdjusted();
-      carTheta += gyroVector.z * ((float)timeStep / 1000.0);
-      thetaError = carTheta - currentTheta;
-
-      // float accelAdjusted = (forward) ? accelVector.x + xAccelOffset : accelVector.x + 0.3;
-
-      readIMU();
-      velocity += accelVector.x * ((float)timeStep / 1000.0);
-      position += velocity * ((float)timeStep / 1000.0);
-      positionError = displacement + position;
-      forward = (positionError > 0);
-      if (!forward)
-      {
-        thetaError = -thetaError; // need to flip theta error when going forward since positive theta error means we need to turn right, which means we need more power on the left motor, which means we need a negative theta error for the motor control equation to work out
-      }
-
-      motor1Velocity = positionError * (defaultStraightSpeed - kp_theta * thetaError);
-      motor2Velocity = positionError * (defaultStraightSpeed + kp_theta * thetaError);
-      if (abs(motor1Velocity) > maxSpeed)
-      {
-        motor1Velocity = maxSpeed;
-      }
-      if (abs(motor2Velocity) > maxSpeed)
-      {
-        motor2Velocity = maxSpeed;
-      }
-
-      analogWrite(motor1En, abs(motor1Velocity));
-      analogWrite(motor2En, abs(motor2Velocity));
-
-      digitalWrite(motor1Pin1, forward);
-      digitalWrite(motor1Pin2, !forward);
-      digitalWrite(motor2Pin1, forward);
-      digitalWrite(motor2Pin2, !forward);
-
-      displayTimer++;
-      if (displayTimer >= 50)
-      {
-        display.clearDisplay();
-        display.setCursor(0, 0);
-        display.print("Acceleration: ");
-        display.println(accelVector.x);
-        display.print("Velocity: ");
-        display.println(velocity);
-        display.print("Position: ");
-        display.println(position);
-        display.print("Pos Error: ");
-        display.println(positionError);
-        display.display();
-        displayTimer = 0;
-      }
-    }
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("Acceleration: ");
-  display.println(accelVector.x);
-  display.print("Velocity: ");
-  display.println(velocity);
-  display.print("Position: ");
-  display.println(position);
-  display.print("Pos Error: ");
-  display.println(positionError);
-  display.display();
-}
-
-// relies on gyroscope for heading, integrating angular velocity
-void rotateGyro(float deltaTheta)
-{
-  // deltaTheta is desired angular displacement from current heading, in radians
-
-  int timeStep = 10; // milliseconds
-  int kp = 200;      // oscillates slightly at 600, IMU starts to drift
-  int ki = 30;
-  // int kd = 0;
-  float ANGULAR_CORRECTION = 90.0 / 106.0;
-
-  int displayTimer = 0;
-  unsigned long currentTime = millis();
-  float thetaSet = carTheta + ANGULAR_CORRECTION * deltaTheta;
-
-  // wrap thetaSet to be within -pi to pi
-  while (thetaSet > 3.1415)
-  {
-    thetaSet -= 2.0 * 3.1415;
-  }
-
-  while (thetaSet < -3.1415)
-  {
-    thetaSet += 2.0 * 3.1415;
-  }
-
-  float thetaError = thetaSet - carTheta;
-  // Normalize thetaError to [-pi, pi] for shortest rotation
-  while (thetaError > 3.1415)
-  {
-    thetaError -= 2.0 * 3.1415;
-  }
-  while (thetaError < -3.1415)
-  {
-    thetaError += 2.0 * 3.1415;
-  }
-  // static float thetaErrorOld = thetaSet - carTheta;
-  float thetaErrorI = 0.0;
-  // static float thetaErrorD;
-
-  float initialThetaError = thetaError;
-
-  bool ccw = (thetaError > 0);
-  /*
-  digitalWrite(motor1Pin1, ccw);
-  digitalWrite(motor1Pin2, !ccw);
-  digitalWrite(motor2Pin1, !ccw);
-  digitalWrite(motor2Pin2, ccw);
-
-  // slow ramp up to avoid slipping
-  for (int i = 0; i < 255; i = i + 5)
-  {
-    analogWrite(motor1En, i);
-    analogWrite(motor2En, i);
-    delay(5);
-  }
-*/
-
-  // make sure car only stops at set point and is at rest
-  while (abs(thetaError) > 0.02 * abs(initialThetaError) || abs(gyroVector.z) > 0.02)
-  {
-
-    if (millis() >= currentTime + timeStep)
-    {
-      currentTime = millis();
-      readIMUAdjusted();
-      carTheta += gyroVector.z * ((float)timeStep / 1000.0);
-      // implementing PI control (no D)
-      thetaError = thetaSet - carTheta;
-      // Normalize thetaError to [-pi, pi] for shortest rotation
-      while (thetaError > 3.1415)
-      {
-        thetaError -= 2.0 * 3.1415;
-      }
-      while (thetaError < -3.1415)
-      {
-        thetaError += 2.0 * 3.1415;
-      }
-      thetaErrorI += thetaError * ((float)timeStep / 1000.0);
-      // thetaErrorD = (thetaError - thetaErrorOld) / ((float)timeStep / 1000.0);
-      // thetaErrorOld = thetaError;
-
-      // PI control
-      int motorVelocity = thetaError * kp + ki * thetaErrorI; // + kd * thetaErrorD;
-      ccw = (thetaError > 0);
-      int motorSpeed = abs(motorVelocity);
-      if (motorSpeed > defaultTurnSpeed)
-      {
-        analogWrite(motor1En, defaultTurnSpeed);
-        analogWrite(motor2En, defaultTurnSpeed);
-      }
-      else
-      {
-        analogWrite(motor1En, abs(motorVelocity));
-        analogWrite(motor2En, abs(motorVelocity));
-      }
-
-      digitalWrite(motor1Pin1, ccw);
-      digitalWrite(motor1Pin2, !ccw);
-      digitalWrite(motor2Pin1, !ccw);
-      digitalWrite(motor2Pin2, ccw);
-
-      displayTimer++;
-      if (displayTimer == 20)
-      {
-        display.clearDisplay();
-        display.setCursor(0, 0);
-        display.print("Yaw velocity: ");
-        display.println(gyroVector.z);
-        display.print("Car Theta: ");
-        display.println(carTheta);
-        display.print("Theta Error: ");
-        display.println(thetaError);
-        display.display();
-        displayTimer = 0;
-      }
-    }
-  }
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("Yaw velocity: ");
-  display.println(gyroVector.z);
-  display.print("Car Theta: ");
-  display.println(carTheta);
-  display.print("Theta Error: ");
-  display.println(thetaError);
-  display.display();
-  displayTimer = 0;
-}
-
-// relies on magnetometer for heading
-// currently unreliable, possibly due to noisy mag readings and/or hard/soft iron offsets
-void rotateMagnet(float deltaTheta)
-{
-  // deltaTheta is desired angular displacement from current heading, in radians
-
-  int timeStep = 10; // milliseconds
-  int kp = 200;      // oscillates slightly at 600, IMU starts to drift
-  int ki = 30;
-  // int kd = 0;
-
-  int displayTimer = 0;
-  unsigned long currentTime = millis();
-  float thetaSet = carTheta + deltaTheta;
-
-  // wrap thetaSet to be within -pi to pi
-  while (thetaSet > 3.1415)
-  {
-    thetaSet -= 2.0 * 3.1415;
-  }
-
-  while (thetaSet < -3.1415)
-  {
-    thetaSet += 2.0 * 3.1415;
-  }
-
-  float thetaError = thetaSet - carTheta;
-  // Normalize thetaError to [-pi, pi] for shortest rotation
-  while (thetaError > 3.1415)
-  {
-    thetaError -= 2.0 * 3.1415;
-  }
-  while (thetaError < -3.1415)
-  {
-    thetaError += 2.0 * 3.1415;
-  }
-  // static float thetaErrorOld = thetaSet - carTheta;
-  float thetaErrorI = 0.0;
-  // static float thetaErrorD;
-
-  float initialThetaError = thetaError;
-
-  bool ccw = (thetaError > 0);
-  digitalWrite(motor1Pin1, ccw);
-  digitalWrite(motor1Pin2, !ccw);
-  digitalWrite(motor2Pin1, !ccw);
-  digitalWrite(motor2Pin2, ccw);
-
-  // slow ramp up to avoid slipping
-  for (int i = 0; i < 255; i = i + 5)
-  {
-    analogWrite(motor1En, i);
-    analogWrite(motor2En, i);
+    
     delay(5);
   }
 
-  // make sure car only stops at set point and is at rest
-  while (abs(thetaError) > 0.02 * abs(initialThetaError) || abs(gyroVector.z) > 0.02)
-  {
+  while (abs(m1EncoderCount) < abs(targetCount)) {
 
-    if (millis() >= currentTime + timeStep)
+    float motorVelocity = m1Error * defaultStraightSpeed * k;
+    if (abs(motorVelocity) > maxSpeed)
     {
-      currentTime = millis();
-      readIMUAdjusted();
-      carTheta = getCurrentHeading();
-      // implementing P control (no ID)
-      thetaError = thetaSet - carTheta;
-      // Normalize thetaError to [-pi, pi] for shortest rotation
-      while (thetaError > 3.1415)
-      {
-        thetaError -= 2.0 * 3.1415;
-      }
-      while (thetaError < -3.1415)
-      {
-        thetaError += 2.0 * 3.1415;
-      }
-      thetaErrorI += thetaError * ((float)timeStep / 1000.0);
-      // thetaErrorD = (thetaError - thetaErrorOld) / ((float)timeStep / 1000.0);
-      // thetaErrorOld = thetaError;
-      int motorVelocity = thetaError * kp + ki * thetaErrorI; // + kd * thetaErrorD;
-      ccw = (thetaError > 0);
-      int motorSpeed = abs(motorVelocity);
-      if (motorSpeed > defaultTurnSpeed)
-      {
-        analogWrite(motor1En, defaultTurnSpeed);
-        analogWrite(motor2En, defaultTurnSpeed);
-      }
-      else
-      {
-        analogWrite(motor1En, abs(motorVelocity));
-        analogWrite(motor2En, abs(motorVelocity));
-      }
-
-      digitalWrite(motor1Pin1, ccw);
-      digitalWrite(motor1Pin2, !ccw);
-      digitalWrite(motor2Pin1, !ccw);
-      digitalWrite(motor2Pin2, ccw);
-
-      displayTimer++;
-      if (displayTimer == 100)
-      {
-        display.clearDisplay();
-        display.setCursor(0, 0);
-        display.print("Yaw velocity: ");
-        display.println(gyroVector.z);
-        display.print("Car Theta: ");
-        display.println(carTheta);
-        display.print("Theta Error: ");
-        display.println(thetaError);
-        display.display();
-        displayTimer = 0;
-      }
+      motorVelocity = maxSpeed;
     }
+
+    analogWrite(motor1En, abs(motorVelocity));
+    analogWrite(motor2En, abs(motorVelocity));
+
+    digitalWrite(motor1Pin1, forward);
+    digitalWrite(motor1Pin2, !forward);
+    digitalWrite(motor2Pin1, forward);
+    digitalWrite(motor2Pin2, !forward);  
+
+    m1Error = targetCount - m1EncoderCount;
+    m2Error = targetCount - m2EncoderCount;
+    differentialError = m1EncoderCount - m2EncoderCount;  // difference between wheels
+    forward = (m1Error < 0);
   }
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("Yaw velocity: ");
-  display.println(gyroVector.z);
-  display.print("Car Theta: ");
-  display.println(carTheta);
-  display.print("Theta Error: ");
-  display.println(thetaError);
-  display.display();
-}
-
-void executePath()
-{
-  // example path: square
-  straight(0.5);
-  stop();
-  delay(1000);
-  rotateGyro(3.1415 / 2);
-  stop();
-  delay(1000);
-
-  straight(0.5);
-  stop();
-  delay(1000);
-  rotateGyro(3.1415 / 2);
-  stop();
-  delay(1000);
-
-  straight(0.5);
-  stop();
-  delay(1000);
-  rotateGyro(3.1415 / 2);
-  stop();
-  delay(1000);
-
-  straight(0.5);
-  stop();
-  delay(1000);
-  rotateGyro(3.1415 / 2);
-  stop();
-  delay(1000);
 }
 
 void setup()
 {
-  Serial.begin(9600);
+  //Serial.begin(9600);
+  Serial.begin(115200);
 
   // display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   // display.display();
@@ -734,6 +805,15 @@ void setup()
     pinMode(allPins[i], OUTPUT);
   }
 
+  pinMode(m1EncoderPinA, INPUT_PULLUP);
+  pinMode(m1EncoderPinB, INPUT_PULLUP);
+  pinMode(m2EncoderPinA, INPUT_PULLUP);
+  pinMode(m2EncoderPinB, INPUT_PULLUP);
+
+  attachInterrupt(digitalPinToInterrupt(m1EncoderPinA), m1HandleEncoderInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(m2EncoderPinA), m2HandleEncoderInterrupt, RISING);
+  
+
   // carTheta = getCurrentHeading();
   // Serial.print("Initial Heading (radians): ");
   // Serial.println(carTheta);
@@ -741,6 +821,10 @@ void setup()
   // delay(1);
   // displayAccel(true);
   // delay(1000);
+
+  stop(); // start with a stop
+
+  goStraight(0.5);
 
   stop();
   // rotateGyro(3.1415 / 2);
@@ -763,15 +847,27 @@ void setup()
 
   // executePath();
 
-  digitalWrite(motor1Pin1, LOW);
-  digitalWrite(motor1Pin2, HIGH);
-  digitalWrite(motor2Pin1, LOW);
-  digitalWrite(motor2Pin2, HIGH);
-  analogWrite(motor1En, 200);
-  analogWrite(motor2En, 200);
+  // digitalWrite(motor1Pin1, LOW);
+  // digitalWrite(motor1Pin2, HIGH);
+  // digitalWrite(motor2Pin1, LOW);
+  // digitalWrite(motor2Pin2, HIGH);
+  // analogWrite(motor1En, 200);
+  // analogWrite(motor2En, 200);
 }
 
 void loop()
 {
-  delay(500);
+  // Serial.print("Pulse Count: ");
+  // Serial.println(m1EncoderCount);
+  // Serial.println(m2EncoderCount);
+  // Serial.print("Encoder rotation angle: ");
+  // Serial.print(m1EncoderCount * 360.0 / (12 * 90 ));  // 90 is encoder motor ratio  12 is encoder motor ppr
+  // Serial.print(m2EncoderCount * 360.0 / (12 * 90 ));  // 90 is encoder motor ratio  12 is encoder motor ppr
+  // Serial.println(" °");
+  // delay(500);
 }
+
+
+
+// speed(100 + k*(rpm1-rpm2))
+// speed(100 - k*(rpm1-rpm2))

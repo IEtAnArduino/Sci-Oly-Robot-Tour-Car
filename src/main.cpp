@@ -728,7 +728,8 @@ void goStraight(float distanceInMeters) {
   const int numRevolutions = distanceInMeters / (2 * 3.1415 * wheelRadius);
   int targetCount = numRevolutions * cpr;
 
-  const float k = 1;
+  const float k = 1.0;
+  const float k2 = 0.1;
 
   int m1Error = targetCount - m1EncoderCount;
   int m2Error = targetCount - m2EncoderCount;
@@ -757,8 +758,8 @@ void goStraight(float distanceInMeters) {
       motorVelocity = maxSpeed;
     }
 
-    analogWrite(motor1En, abs(motorVelocity));
-    analogWrite(motor2En, abs(motorVelocity));
+    analogWrite(motor1En, abs(motorVelocity) - k2 * differentialError);
+    analogWrite(motor2En, abs(motorVelocity) + k2 * differentialError);
 
     digitalWrite(motor1Pin1, forward);
     digitalWrite(motor1Pin2, !forward);

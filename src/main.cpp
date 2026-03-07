@@ -68,7 +68,7 @@ float motor2Correction = 1.15;
 // goes left 1.1
 // goes right 1.2
 
-uint8_t maxSpeed = 200;             // change if neededf
+uint8_t maxSpeed = 200;             // change if needed
 uint8_t defaultStraightSpeed = 160; // change if needed
 uint8_t defaultTurnSpeed = 100;     // change if needed
 int stopTime = 500;
@@ -725,11 +725,11 @@ void m2HandleEncoderInterrupt() {
 void goStraight(float distanceInMeters) {
 
   const int cpr = 12 * 90 * 1;
-  const int numRevolutions = distanceInMeters / (2 * 3.1415 * wheelRadius);
+  const float numRevolutions = distanceInMeters / (2 * 3.1415 * wheelRadius);
   int targetCount = numRevolutions * cpr;
 
-  const float k = 1.0;
-  const float k2 = 0.1;
+  const float k = 1.0; // try tweaking this; lower if stopping suddenly
+  const float k2 = 0.002; // not used for now
 
   int m1Error = targetCount - m1EncoderCount;
   int m2Error = targetCount - m2EncoderCount;
@@ -742,13 +742,13 @@ void goStraight(float distanceInMeters) {
   digitalWrite(motor2Pin1, forward);
   digitalWrite(motor2Pin2, !forward);  
 
-  for (int i = 0; i < defaultStraightSpeed; i = i + 5)
-  {
-    analogWrite(motor1En, i);
-    analogWrite(motor2En, i);
+  // for (int i = 0; i < defaultStraightSpeed; i = i + 5)
+  // {
+  //   analogWrite(motor1En, i);
+  //   analogWrite(motor2En, i);
     
-    delay(5);
-  }
+  //   delay(5);
+  // }
 
   while (abs(m1EncoderCount) < abs(targetCount)) {
 
@@ -758,8 +758,12 @@ void goStraight(float distanceInMeters) {
       motorVelocity = maxSpeed;
     }
 
-    analogWrite(motor1En, abs(motorVelocity) - k2 * differentialError);
-    analogWrite(motor2En, abs(motorVelocity) + k2 * differentialError);
+    //analogWrite(motor1En, abs(motorVelocity) - k2 * differentialError);
+    //analogWrite(motor2En, abs(motorVelocity) + k2 * differentialError);
+    // analogWrite(motor1En, abs(motorVelocity));
+    // analogWrite(motor2En, abs(motorVelocity));
+    analogWrite(motor1En, 90);
+    analogWrite(motor2En, 90);
 
     digitalWrite(motor1Pin1, forward);
     digitalWrite(motor1Pin2, !forward);
@@ -772,6 +776,69 @@ void goStraight(float distanceInMeters) {
     forward = (m1Error < 0);
   }
 }
+
+void rotate(bool ccw)
+{
+  const int cpr = 12 * 90 * 1;
+  float ANGULAR_CORRECTION = 1.0;
+  if (ccw == 0) { 
+    ANGULAR_CORRECTION = 90.0 / 111.5; // 110 - ~95      115 undershot
+  }
+  else {
+    ANGULAR_CORRECTION = 90.0;
+  }
+  
+  //const float ANGULAR_CORRECTION = 1.0;
+  float chassisRadius = 0.055; // meters
+  float revolutionsNeeded = (3.1415 * chassisRadius / 2) / (2 * 3.1415 * wheelRadius);
+  float targetCount = revolutionsNeeded * cpr * ANGULAR_CORRECTION;
+
+  float countError = targetCount - m1EncoderCount;
+
+  float kp = 1.0;
+
+  digitalWrite(motor1Pin1, !ccw);
+  digitalWrite(motor1Pin2, ccw);
+  digitalWrite(motor2Pin1, ccw);
+  digitalWrite(motor2Pin2, !ccw);
+
+  // slow ramp up to avoid slipping
+  // for (int i = 0; i < 100; i = i + 5)
+  // {
+  //   analogWrite(motor1En, i);
+  //   analogWrite(motor2En, i);
+  //   delay(5);
+  // }
+
+  // make sure car only stops at set point and is at rest
+  while (abs(m1EncoderCount) < abs(targetCount))
+  {
+
+      // PI control
+      int motorVelocity = countError * kp; // + kd * thetaErrorD;
+      //int motorSpeed = abs(motorVelocity);
+      int motorSpeed = 75;
+      // if (motorSpeed > defaultTurnSpeed)
+      // {
+      //   analogWrite(motor1En, defaultTurnSpeed);
+      //   analogWrite(motor2En, defaultTurnSpeed);
+      // }
+      // else
+      // {
+      //   analogWrite(motor1En, abs(motorVelocity));
+      //   analogWrite(motor2En, abs(motorVelocity));
+      // }
+      analogWrite(motor1En, motorSpeed);
+      analogWrite(motor2En, motorSpeed);
+
+      digitalWrite(motor1Pin1, !ccw);
+      digitalWrite(motor1Pin2, ccw);
+      digitalWrite(motor2Pin1, ccw);
+      digitalWrite(motor2Pin2, !ccw);
+
+    }
+  }
+
 
 void setup()
 {
@@ -810,6 +877,7 @@ void setup()
   pinMode(m1EncoderPinB, INPUT_PULLUP);
   pinMode(m2EncoderPinA, INPUT_PULLUP);
   pinMode(m2EncoderPinB, INPUT_PULLUP);
+  pinMode(18, INPUT_PULLDOWN);
 
   attachInterrupt(digitalPinToInterrupt(m1EncoderPinA), m1HandleEncoderInterrupt, RISING);
   attachInterrupt(digitalPinToInterrupt(m2EncoderPinA), m2HandleEncoderInterrupt, RISING);
@@ -823,11 +891,13 @@ void setup()
   // displayAccel(true);
   // delay(1000);
 
-  stop(); // start with a stop
+  //stop(); // start with a stop
 
-  goStraight(0.5);
+  // rotate(0);
 
-  stop();
+  //delay(500);
+
+  //stop();
   // rotateGyro(3.1415 / 2);
   // stop();
   // delay(1000);
@@ -858,17 +928,73 @@ void setup()
 
 void loop()
 {
-  // Serial.print("Pulse Count: ");
-  // Serial.println(m1EncoderCount);
-  // Serial.println(m2EncoderCount);
-  // Serial.print("Encoder rotation angle: ");
-  // Serial.print(m1EncoderCount * 360.0 / (12 * 90 ));  // 90 is encoder motor ratio  12 is encoder motor ppr
-  // Serial.print(m2EncoderCount * 360.0 / (12 * 90 ));  // 90 is encoder motor ratio  12 is encoder motor ppr
-  // Serial.println(" °");
-  // delay(500);
+  //goStraight(0.5);
+  if(digitalRead(18) == HIGH) {
+    Serial.println("Button pressed");
+    delay(1000);
+    //goStraight(0.5*(0.5/0.45));
+    goStraight(3.1); // 1.25 - 58cm, 1.2 - 40cm
+    //stop();
+    // delay(500);
+    // goStraight(0.5);
+    //stop();
+    // delay(500);
+    // goStraight(0.5);
+    //stop();
+    // delay(500);
+    // goStraight(0.5);
+    //stop();
+    // delay(500);
+    // goStraight(0.25);
+
+    m1EncoderCount = 0;
+    m2EncoderCount = 0;
+
+    stop();
+    delay(500);
+    rotate(0); //right
+    //stop();
+
+    m1EncoderCount = 0;
+    m2EncoderCount = 0;
+    delay(500);
+    rotate(0); //right
+
+    m1EncoderCount = 0;
+    m2EncoderCount = 0;
+    //stop();
+    delay(500);
+    rotate(0); //right
+
+    m1EncoderCount = 0;
+    m2EncoderCount = 0;
+    //stop();
+    delay(500);
+    goStraight(1.2);
+    stop();
+    //stop();
+    // delay(500);
+    // goStraight(0.25);
+    //stop();
+    //rotate(1); // don't use
+    // ONLY USE ROTATE(0);
+    
+    // rotate(0); //right
+    // delay(1000);
+    
+
+    // rotate(0);
+    // delay(1000);
+    // stop();
+
+    // rotate(1);
+    // delay(1000);
+    // stop();
+  }
+  stop();
 }
 
-
+//17in, 16.5in, 17.75
 
 // speed(100 + k*(rpm1-rpm2))
 // speed(100 - k*(rpm1-rpm2))
